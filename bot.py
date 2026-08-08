@@ -640,11 +640,11 @@ async def help_handler(message: Message):
 
 
 async def on_startup():
+    scheduler.start()
     await seed_initial_data()
 
 
 if __name__ == "__main__":
     log.info("Бот запускается...")
-    scheduler.start()
     bot.loop_wrapper.on_startup.append(on_startup())
     bot.run_forever()
