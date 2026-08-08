@@ -6,10 +6,10 @@ from datetime import datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from vkbottle.bot import Bot, Message
-from vkbottle.dispatch.rules.base import StartswithRule
 
 import db
-from config import CHECK_INTERVAL_MINUTES, GROUP_TOKEN, REMINDER_HOURS
+import seed_data
+from config import CHECK_INTERVAL_MINUTES, GROUP_TOKEN, REMINDER_HOURS, SEED_PEER_ID
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("poll-bot")
@@ -97,7 +97,7 @@ async def is_chat_admin(peer_id: int, user_id: int) -> bool:
     return False
 
 
-@bot.on.message(StartswithRule("/poll"))
+@bot.on.message(func=lambda m: m.text.startswith("/poll"))
 async def create_poll_handler(message: Message):
     if message.text.startswith("/polls"):
         # /polls обрабатывается отдельным хендлером ниже
@@ -158,7 +158,7 @@ async def list_polls_handler(message: Message):
     await message.answer(text)
 
 
-@bot.on.message(StartswithRule("/stats"))
+@bot.on.message(func=lambda m: m.text.startswith("/stats"))
 async def stats_handler(message: Message):
     parts = message.text.split()
     if len(parts) < 2 or not parts[1].isdigit():
@@ -189,7 +189,7 @@ async def stats_handler(message: Message):
     await message.answer(text)
 
 
-@bot.on.message(StartswithRule("/add_child"))
+@bot.on.message(func=lambda m: m.text.startswith("/add_child"))
 async def add_child_handler(message: Message):
     if not await is_chat_admin(message.peer_id, message.from_id):
         await message.answer("Добавлять детей могут только администраторы беседы.")
@@ -217,7 +217,7 @@ async def add_child_handler(message: Message):
     await message.answer(f"Ребёнок «{name_part}» добавлен, №{child_id}. Родители: {parents_text}")
 
 
-@bot.on.message(StartswithRule("/add_parent"))
+@bot.on.message(func=lambda m: m.text.startswith("/add_parent"))
 async def add_parent_handler(message: Message):
     if not await is_chat_admin(message.peer_id, message.from_id):
         await message.answer("Изменять список родителей могут только администраторы беседы.")
@@ -245,7 +245,7 @@ async def add_parent_handler(message: Message):
     await message.answer(f"Добавлено родителям ребёнка №{child_id}: {mentions}")
 
 
-@bot.on.message(StartswithRule("/remove_parent"))
+@bot.on.message(func=lambda m: m.text.startswith("/remove_parent"))
 async def remove_parent_handler(message: Message):
     if not await is_chat_admin(message.peer_id, message.from_id):
         await message.answer("Изменять список родителей могут только администраторы беседы.")
@@ -268,7 +268,7 @@ async def remove_parent_handler(message: Message):
     await message.answer(f"Родитель(и) откреплены от ребёнка №{child_id}.")
 
 
-@bot.on.message(StartswithRule("/remove_child"))
+@bot.on.message(func=lambda m: m.text.startswith("/remove_child"))
 async def remove_child_handler(message: Message):
     if not await is_chat_admin(message.peer_id, message.from_id):
         await message.answer("Удалять детей могут только администраторы беседы.")
@@ -323,7 +323,7 @@ async def my_children_handler(message: Message):
     await message.answer("Ваши дети:\n" + "\n".join(lines))
 
 
-@bot.on.message(StartswithRule("/tournament_close"))
+@bot.on.message(func=lambda m: m.text.startswith("/tournament_close"))
 async def tournament_close_handler(message: Message):
     if not await is_chat_admin(message.peer_id, message.from_id):
         await message.answer("Закрывать турниры могут только администраторы беседы.")
@@ -340,7 +340,7 @@ async def tournament_close_handler(message: Message):
     await message.answer(f"Турнир №{tournament_id} закрыт.")
 
 
-@bot.on.message(StartswithRule("/tournament"))
+@bot.on.message(func=lambda m: m.text.startswith("/tournament"))
 async def tournament_create_handler(message: Message):
     # более специфичные команды перехватываются своими хендлерами выше/ниже —
     # этот обрабатывает только "голый" /tournament для создания турнира
@@ -394,7 +394,7 @@ async def tournaments_list_handler(message: Message):
     await message.answer("Активные турниры:\n" + "\n".join(lines))
 
 
-@bot.on.message(StartswithRule("/tournament_add_child"))
+@bot.on.message(func=lambda m: m.text.startswith("/tournament_add_child"))
 async def tournament_add_child_handler(message: Message):
     if not await is_chat_admin(message.peer_id, message.from_id):
         await message.answer("Изменять состав турнира могут только администраторы беседы.")
@@ -414,7 +414,7 @@ async def tournament_add_child_handler(message: Message):
     await message.answer(f"Ребёнок №{child_id} добавлен в турнир №{tournament_id}.")
 
 
-@bot.on.message(StartswithRule("/paid"))
+@bot.on.message(func=lambda m: m.text.startswith("/paid"))
 async def paid_handler(message: Message):
     parts = message.text.split()
     if len(parts) < 2 or not parts[1].isdigit():
@@ -456,7 +456,7 @@ async def paid_handler(message: Message):
     )
 
 
-@bot.on.message(StartswithRule("/unpaid"))
+@bot.on.message(func=lambda m: m.text.startswith("/unpaid"))
 async def unpaid_handler(message: Message):
     if not await is_chat_admin(message.peer_id, message.from_id):
         await message.answer("Снимать отметку об оплате может только администратор беседы.")
@@ -480,7 +480,7 @@ async def unpaid_handler(message: Message):
     await message.answer(f"Отметка об оплате снята (ребёнок №{child_id}, турнир №{tournament_id}).")
 
 
-@bot.on.message(StartswithRule("/debts"))
+@bot.on.message(func=lambda m: m.text.startswith("/debts"))
 async def debts_handler(message: Message):
     parts = message.text.split()
     if len(parts) >= 2 and parts[1].isdigit():
@@ -572,6 +572,47 @@ scheduler = AsyncIOScheduler()
 scheduler.add_job(check_reminders, "interval", minutes=CHECK_INTERVAL_MINUTES)
 
 
+async def seed_initial_data():
+    """Один раз при первом запуске заливает данные из seed_data.py в БД для SEED_PEER_ID."""
+    if not SEED_PEER_ID:
+        return
+    if db.count_children(SEED_PEER_ID) > 0:
+        log.info("Данные для беседы %s уже загружены, seed пропущен.", SEED_PEER_ID)
+        return
+
+    log.info("Загружаю зашитые данные детей/родителей для беседы %s...", SEED_PEER_ID)
+    resolve_failed = []
+
+    for child_name, parents in seed_data.CHILDREN:
+        child_id = db.add_child(SEED_PEER_ID, child_name)
+        for parent_name, token in parents:
+            if token is None:
+                continue  # VK-профиль неизвестен, добавляется вручную через /add_parent
+            if isinstance(token, int):
+                db.add_parent(child_id, token)
+                continue
+            try:
+                result = await bot.api.utils.resolve_screen_name(screen_name=token)
+            except Exception:
+                result = None
+            if result and getattr(result, "type", None) == "user":
+                db.add_parent(child_id, result.object_id)
+            else:
+                resolve_failed.append((child_name, parent_name, token))
+
+    log.info("Загрузка завершена: детей добавлено %d.", len(seed_data.CHILDREN))
+    if resolve_failed:
+        log.warning(
+            "Не удалось определить VK id для: %s. Добавьте вручную через /add_parent.",
+            resolve_failed,
+        )
+
+
+@bot.on.message(text="/chatid")
+async def chatid_handler(message: Message):
+    await message.answer(f"peer_id этой беседы: {message.peer_id}")
+
+
 @bot.on.message(text="/help")
 async def help_handler(message: Message):
     await message.answer(
@@ -598,7 +639,12 @@ async def help_handler(message: Message):
     )
 
 
+async def on_startup():
+    await seed_initial_data()
+
+
 if __name__ == "__main__":
     log.info("Бот запускается...")
     scheduler.start()
+    bot.loop_wrapper.on_startup.append(on_startup())
     bot.run_forever()
