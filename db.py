@@ -187,6 +187,13 @@ def list_children(peer_id):
     return children
 
 
+def count_children(peer_id):
+    row = _conn.execute(
+        "SELECT COUNT(*) AS c FROM children WHERE peer_id = ?", (peer_id,)
+    ).fetchone()
+    return row["c"]
+
+
 def get_children_by_parent(peer_id, parent_user_id):
     rows = _conn.execute(
         """
